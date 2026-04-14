@@ -205,3 +205,26 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Unit test / coverage reports
+.coverage
+.pytest_cache/
+
+# Virtual Environments
+venv/
+env/
+.venv/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Output 3D files (Don't upload generated outputs to GitHub)
+*.gltf
+*.glb
+*.ply
+*.stl
+*.html
+*.png
