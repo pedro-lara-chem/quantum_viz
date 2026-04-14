@@ -20,9 +20,9 @@ from typing import List, Optional, Tuple
 from tqdm import tqdm
 
 from parsers.molden_parser import MoldenParser, BasisSetInfo
-from mathemathics.atomic_orbitals import AtomicOrbitalComputer
+from mathematics.atomic_orbitals import AtomicOrbitalComputer
 from constants import BOHR_TO_ANGSTROM, L_QUANTUM_NUMBERS_MAP
-from mathemathics.spherical_harmonics import (
+from mathematics.spherical_harmonics import (
     cartesian_to_spherical_coeffs,
     reorder_spherical_coeffs,
     OrderingConvention,
