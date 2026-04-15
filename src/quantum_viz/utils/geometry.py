@@ -35,7 +35,7 @@ from scipy.spatial.distance import pdist, squareform
 from typing import List, Tuple, Optional, Dict
 
 import re
-from constants import (
+from quantum_viz.constants import (
     COVALENT_RADII, DEFAULT_RADIUS, BOND_TOLERANCE,
     BOHR_TO_ANGSTROM, ANGSTROM_TO_BOHR
 )
