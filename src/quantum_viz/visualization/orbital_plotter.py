@@ -35,9 +35,8 @@ from dataclasses import dataclass
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from constants import DEFAULT_ISOVALUE, DEFAULT_OPACITY, BOHR_TO_ANGSTROM
-from visualization.molecule_plotter import MoleculePlotter
+from quantum_viz.constants import DEFAULT_ISOVALUE, DEFAULT_OPACITY, BOHR_TO_ANGSTROM
+from quantum_viz.visualization.molecule_plotter import MoleculePlotter
 
 
 @dataclass
