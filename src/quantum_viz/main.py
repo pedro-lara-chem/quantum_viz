@@ -4,6 +4,7 @@ Quantum Chemistry Molecular Orbital Visualization Tool – Revised
 Usage:
     python main.py [--input MOLDEN_FILE] [--output OUTPUT_DIR] [--quality QUALITY]
                   [--basis-format {auto,spherical,cartesian}] [--convention {auto,pyscf,gaussian,orca}]
+                  [--format {gltf,html,ply,stl,png}]
                   [--debug-phase] [--debug-ao]
 
 Author: Pedro Lara
@@ -39,7 +40,8 @@ class OrbitalVisualizationApp:
     def __init__(self, quality: str = 'medium', resolution: int = 61,
                  iso_value: float = 0.01, basis_format: str = 'auto',
                  convention: str = 'auto', debug_phase: bool = False,
-                 debug_ao: bool = False, verify_math: bool = False):
+                 debug_ao: bool = False, verify_math: bool = False,
+                output_format: str = 'gltf'):
         self.quality = quality
         self.resolution = resolution
         self.iso_value = iso_value
@@ -48,6 +50,7 @@ class OrbitalVisualizationApp:
         self.debug_phase = debug_phase
         self.debug_ao = debug_ao
         self.verify_math = verify_math
+        self.output_format = output_format
         self._apply_quality_preset()
 
     def _apply_quality_preset(self) -> None:
@@ -243,7 +246,7 @@ class OrbitalVisualizationApp:
 
         if first_mo == 0:
             # Molecule only
-            output_file = os.path.join(output_dir, f"{base_name}_molecule.gltf")
+            output_file = os.path.join(output_dir, f"{base_name}_molecule.{self.output_format}")
             plotter = pv.Plotter(off_screen=True, window_size=[1200, 900])
             plotter.set_background('white')
             plotter.enable_3_lights()
@@ -288,7 +291,7 @@ class OrbitalVisualizationApp:
                         special = "_LUMO"
                 output_file = os.path.join(
                     output_dir,
-                    f"{base_name}_MO{mo_idx+1}{special}_E{energy:.4f}_Occ{occup:.2f}.gltf"
+                    f"{base_name}_MO{mo_idx+1}{special}_E{energy:.4f}_Occ{occup:.2f}.{self.output_format}"
                 )
                 orb_plotter.export(output_file)
                 orb_plotter.close()
@@ -388,6 +391,9 @@ def main():
                         default='auto', help='Spherical harmonic phase convention')
     parser.add_argument('--debug-phase', action='store_true',
                         help='Print phase diagnostic information (debug only)')
+    parser.add_argument('--format', '-f', default='gltf',
+                        choices=['gltf', 'html', 'ply', 'stl', 'png'],
+                        help='Output file format')
     parser.add_argument('--debug-ao', action='store_true',
                         help='Print detailed AO specifications and validate centers')
     parser.add_argument('--verify-math', action='store_true',
@@ -402,7 +408,8 @@ def main():
         convention=args.convention,
         verify_math=args.verify_math,
         debug_phase=args.debug_phase,
-        debug_ao=args.debug_ao
+        debug_ao=args.debug_ao,
+        output_format=args.format
     )
 
     if args.input:
