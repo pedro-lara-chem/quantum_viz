@@ -12,7 +12,8 @@ A high-performance Python toolkit for parsing quantum chemistry output files (Mo
 * **Versatile Export Formats:** Export your visualizations to multiple formats depending on your needs: 
   * `gltf` / `glb` (3D web/engine standard)
   * `html` (Interactive 3D webpage)
-  * `ply` / `stl` (3D printing and CAD)
+  * `obj` (3D printing and CAD)
+  * `cube` (Gaussian cube volumetric files)
   * `png` (Static images for publications)
 
 ## Installation
@@ -51,11 +52,13 @@ You can run the tool directly from the terminal. Because of how it is packaged, 
 If you run the command without specifying an input file, the tool will automatically scan your current directory for any `.molden` files and present an interactive menu. You can select a specific file by its number, or type `all` to process every Molden file in the folder sequentially.
 ```bash
 quantum-viz
+```
 
 #### Single File Mode
 To bypass the menu and process a specific file directly, use the `--input` argument. The code will automatically create your specified `--output` directory if it does not already exist.
 ```bash
 quantum-viz --input your_molecule.molden --output ./results/ --quality high --format html
+```
 
 #### Available Arguments
 
@@ -68,7 +71,7 @@ quantum-viz --input your_molecule.molden --output ./results/ --quality high --fo
 | `--isovalue` | `-v` | `float`| *None* | Manually override the isosurface value (e.g., 0.01). |
 | `--basis-format` | | `str` | `auto` | Force basis format (`auto`, `spherical`, `cartesian`). |
 | `--convention` | | `str` | `auto` | Spherical harmonic phase convention (`auto`, `pyscf`, `gaussian`, `orca`). |
-| `--format` | `-f` | `str` | `gltf` | Output file format (`gltf`, `html`, `ply`, `stl`, `png`). |
+| `--format` | `-f` | `str` | `gltf` | Output file format (`gltf`, `glb`,  `html`, `obj`, `cube`,  `png`). |
 | `--debug-phase` | | `flag` | `False` | Print phase diagnostic information (debug only). |
 | `--debug-ao` | | `flag` | `False` | Print detailed AO specifications and validate atomic centers. |
 | `--verify-math`| | `flag` | `False` | Perform numerical grid integration to verify MO normalization. |
