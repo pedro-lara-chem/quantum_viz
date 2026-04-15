@@ -18,7 +18,7 @@ import numba
 from typing import List, Union, Tuple, Optional
 from enum import Enum
 
-from constants import L_QUANTUM_NUMBERS_MAP, ANGULAR_LABELS, PI, EPSILON, SPECTROSCOPIC_NOTATION
+from quantum_viz.constants import L_QUANTUM_NUMBERS_MAP, ANGULAR_LABELS, PI, EPSILON, SPECTROSCOPIC_NOTATION
 
 # ----------------------------------------------------------------------
 #  Enums and Constants
