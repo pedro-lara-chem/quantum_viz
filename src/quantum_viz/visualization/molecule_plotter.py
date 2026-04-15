@@ -33,11 +33,11 @@ from matplotlib.colors import ListedColormap
 from typing import List, Optional, Dict, Tuple, Any
 from dataclasses import dataclass, field
 
-from constants import (
+from quantum_viz.constants import (
     ATOMIC_COLORS, COVALENT_RADII, DEFAULT_COLOR, DEFAULT_RADIUS,
     BOND_TOLERANCE, BOHR_TO_ANGSTROM, ANGSTROM_TO_BOHR, ATOM_RADIUS_SCALE, BOND_RADIUS
 )
-from utils.geometry import detect_bonds
+from quantum_viz.utils.geometry import detect_bonds
 
 
 @dataclass
