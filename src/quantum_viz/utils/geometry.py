@@ -1,415 +1,224 @@
 """
-Basis Set Normalization Detection and Handling Module
+Molecular Geometry Utilities Module
 
-This module provides sophisticated detection of basis set normalization
-conventions used in quantum chemistry calculations. Different programs
-(Gaussian, ORCA, PySCF, Molpro, etc.) have different conventions for
-whether primitive Gaussian functions include normalization constants.
+This module provides functions for molecular geometry analysis,
+distance calculations, bond detection, and symmetry operations.
 
 Features:
-    - Automatic detection of normalization conventions
-    - Support for multiple quantum chemistry packages
-    - Heuristic analysis of coefficient magnitudes
-    - Option to force or skip renormalization
-    - Statistical analysis of basis set patterns
-
-Classes:
-    NormalizationDetector: Main class for detecting conventions
-    NormalizationResult: Container for detection results
+    - Fast distance matrix computation using scipy
+    - Bond detection based on covalent radii
+    - Principal axes and symmetry detection
+    - Grid generation with dynamic buffer for diffuse functions
+    - Molecule centering and alignment
 
 Functions:
-    detect_normalization_convention: Quick detection function
-    apply_normalization: Apply or skip normalization based on detection
+    - compute_distance_matrix: Fast pairwise distance calculation
+    - detect_bonds: Identify chemical bonds
+    - compute_principal_axes: Find molecular principal axes
+    - generate_grid: Create 3D grid for visualization
+    - center_molecule: Center molecule at origin
 
 Author: Pedro Lara
 Version: 2.0.0
 Date: 2024
 """
 
+"""
+Molecular Geometry Utilities Module with Unified Unit Handling
+
+All internal calculations use Bohr (AU) for consistency with quantum chemistry.
+Visualization can use either Bohr or Angstroms.
+"""
+
 import numpy as np
-import numba
-from typing import List, Dict, Tuple, Optional, Any
-from dataclasses import dataclass, field
-from enum import Enum
+from scipy.spatial.distance import pdist, squareform
+from typing import List, Tuple, Optional, Dict
 
-from quantum_viz.constants import EPSILON, PI
-from quantum_viz.parsers.molden_parser import BasisSetInfo, MoldenVariant
-
-
-class NormalizationConvention(Enum):
-    """Enumeration of possible normalization conventions."""
-    NORMALIZED = "normalized"
-    UNNORMALIZED = "unnormalized"
-    MIXED = "mixed"
-    UNKNOWN = "unknown"
+import re
+from constants import (
+    COVALENT_RADII, DEFAULT_RADIUS, BOND_TOLERANCE,
+    BOHR_TO_ANGSTROM, ANGSTROM_TO_BOHR
+)
 
 
-@dataclass
-class NormalizationResult:
-    """Container for normalization detection results."""
-    convention: NormalizationConvention = NormalizationConvention.UNKNOWN
-    confidence: float = 0.0
-    reasons: List[str] = field(default_factory=list)
-    recommendation: str = ""
-    should_renormalize: bool = True
-    program_hint: Optional[MoldenVariant] = None
+# ==============================================================================
+# Unit Conversion Utilities
+# ==============================================================================
 
-
-class NormalizationDetector:
-    """
-    Detector for basis set normalization conventions.
-    
-    This class analyzes GTO basis set data to determine whether primitive
-    Gaussian functions are already normalized or need normalization.
-    
-    Attributes:
-        gto_data: GTO basis set data
-        basis_info: Basis set metadata from Molden parser
-        
-    Example:
-        >>> detector = NormalizationDetector(gto_data, basis_info)
-        >>> result = detector.detect()
-        >>> if result.should_renormalize:
-        ...     print("Renormalization recommended")
-    """
-    
-    def __init__(self, gto_data: List[Any], basis_info: Optional[BasisSetInfo] = None):
-        """
-        Initialize the normalization detector.
-        
-        Args:
-            gto_data: List of GTOData objects
-            basis_info: Optional BasisSetInfo from Molden parser
-        """
-        self.gto_data = gto_data
-        self.basis_info = basis_info
-        self.result = NormalizationResult()
-        
-        # Store program hint if available
-        if basis_info and basis_info.variant:
-            self.result.program_hint = basis_info.variant
-    
-    def detect(self) -> NormalizationResult:
-        """
-        Detect the normalization convention used in the basis set.
-        
-        Returns:
-            NormalizationResult object with detection details
-            
-        The detection uses multiple heuristics:
-            1. Program-specific conventions (if known)
-            2. Magnitude of contraction coefficients
-            3. Relationship between exponents and coefficients
-            4. Statistical analysis of coefficient patterns
-        """
-        # First, check program-specific conventions
-        if self._check_program_convention():
-            return self.result
-        
-        # Sample primitives for analysis
-        samples = self._sample_primitives(max_samples=50)
-        
-        if not samples:
-            self.result.convention = NormalizationConvention.UNKNOWN
-            self.result.confidence = 0.0
-            self.result.reasons.append("No primitives found for analysis")
-            self.result.should_renormalize = True
-            return self.result
-        
-        # Analyze the samples
-        analysis = self._analyze_samples(samples)
-        
-        # Determine convention based on analysis
-        self._determine_convention(analysis)
-        
-        # Make recommendation
-        self._make_recommendation()
-        
-        return self.result
-    
-    def _check_program_convention(self) -> bool:
-        """
-        Check if program-specific convention is known.
-        
-        Returns:
-            True if convention was determined from program hint
-        """
-        if not self.basis_info or not self.basis_info.variant:
-            return False
-        
-        variant = self.basis_info.variant
-        
-        # Known conventions
-        if variant in [MoldenVariant.GAUSSIAN, MoldenVariant.MOLPRO]:
-            self.result.convention = NormalizationConvention.NORMALIZED
-            self.result.confidence = 0.9
-            self.result.reasons.append(f"{variant.value} typically uses normalized primitives")
-            self.result.should_renormalize = False
-            return True
-        elif variant == MoldenVariant.ORCA:
-            self.result.convention = NormalizationConvention.UNNORMALIZED
-            self.result.confidence = 0.85
-            self.result.reasons.append(f"{variant.value} typically uses unnormalized primitives")
-            self.result.should_renormalize = True
-            return True
-        elif variant == MoldenVariant.PYSCF:
-            # PySCF can use either, need to analyze
-            return False
-        
-        return False
-    
-    def _sample_primitives(self, max_samples: int = 50) -> List[Dict]:
-        """
-        Sample primitives from the basis set for analysis.
-        
-        Args:
-            max_samples: Maximum number of samples to collect
-            
-        Returns:
-            List of primitive dictionaries with metadata
-        """
-        samples = []
-        
-        for atom_gto in self.gto_data[:min(3, len(self.gto_data))]:
-            for shell in atom_gto.shells[:min(3, len(atom_gto.shells))]:
-                for prim in shell.primitives[:min(5, len(shell.primitives))]:
-                    if len(samples) >= max_samples:
-                        break
-                    
-                    # Determine angular momentum
-                    l_val = 0
-                    if shell.type and shell.type[0].lower() in 'spdfghi':
-                        l_map = {'s': 0, 'p': 1, 'd': 2, 'f': 3, 'g': 4, 'h': 5, 'i': 6}
-                        l_val = l_map.get(shell.type[0].lower(), 0)
-                    
-                    samples.append({
-                        'exponent': prim['exponent'],
-                        'coefficients': prim['coefficients'],
-                        'l': l_val,
-                        'scale_factor': shell.scale_factor
-                    })
-                    
-                    if len(samples) >= max_samples:
-                        break
-                if len(samples) >= max_samples:
-                    break
-            if len(samples) >= max_samples:
-                break
-        
-        return samples
-    
-    def _analyze_samples(self, samples: List[Dict]) -> Dict[str, Any]:
-        """
-        Perform statistical analysis on sampled primitives.
-        
-        Args:
-            samples: List of primitive samples
-            
-        Returns:
-            Dictionary of analysis results
-        """
-        analysis = {
-            'large_coeff_count': 0,
-            'near_unity_count': 0,
-            'norm_ratio_stats': [],
-            'coeff_magnitudes': [],
-            'exponents': [],
-            'normalized_likelihood': 0.0
-        }
-        
-        for sample in samples:
-            alpha = sample['exponent']
-            l_val = sample['l']
-            coeffs = sample['coefficients']
-            scale = sample['scale_factor']
-            
-            if not coeffs:
-                continue
-            
-            # Calculate expected normalization constant
-            expected_norm = self._calculate_expected_norm(alpha * scale**2, l_val)
-            
-            for coeff in coeffs:
-                if abs(coeff) < EPSILON:
-                    continue
-                
-                analysis['coeff_magnitudes'].append(abs(coeff))
-                analysis['exponents'].append(alpha)
-                
-                # Check for large coefficients (suggests unnormalized)
-                if abs(coeff) > 100:
-                    analysis['large_coeff_count'] += 1
-                
-                # Check for coefficients near 1.0 (often unnormalized)
-                if 0.9 < abs(coeff) < 1.1 and alpha > 0.5:
-                    analysis['near_unity_count'] += 1
-                
-                # Compare with expected normalized value
-                if expected_norm > EPSILON:
-                    ratio = abs(coeff) / expected_norm
-                    analysis['norm_ratio_stats'].append(ratio)
-        
-        # Calculate likelihood of being normalized
-        if analysis['norm_ratio_stats']:
-            ratios = np.array(analysis['norm_ratio_stats'])
-            # If ratios are close to 1, likely normalized
-            # If ratios are far from 1, likely unnormalized
-            median_ratio = np.median(ratios)
-            if 0.5 < median_ratio < 2.0:
-                analysis['normalized_likelihood'] = 1.0 - abs(np.log10(median_ratio))
-            else:
-                analysis['normalized_likelihood'] = 0.0
-        
-        return analysis
+class UnitConverter:
+    """Utility class for unit conversions."""
     
     @staticmethod
-    @numba.njit(cache=True)
-    def _calculate_expected_norm(alpha: float, l: int) -> float:
+    def to_bohr(coordinates: np.ndarray, from_unit: str) -> np.ndarray:
         """
-        Calculate expected normalization constant for a primitive GTO.
+        Convert coordinates to Bohr (AU).
         
         Args:
-            alpha: Scaled exponent
-            l: Angular momentum quantum number
+            coordinates: Input coordinates
+            from_unit: Source unit ("bohr", "au", "angstrom", "angs")
             
         Returns:
-            Expected normalization constant
+            Coordinates in Bohr
         """
-        if alpha < EPSILON:
-            return 0.0
-        
-        # Normalization for Cartesian GTO:
-        # N = (2α/π)^(3/4) * (4α)^(l/2) / √((2l-1)!!)
-        
-        # Calculate (2l-1)!!
-        double_fact = 1.0
-        for i in range(1, 2 * l, 2):
-            double_fact *= i
-        
-        if double_fact < EPSILON:
-            return 0.0
-        
-        term1 = (2.0 * alpha / PI) ** 0.75
-        term2 = (2.0 * np.sqrt(alpha)) ** l
-        
-        return term1 * term2 / np.sqrt(double_fact)
+        if from_unit.lower() in ["bohr", "au"]:
+            return coordinates.copy()
+        elif from_unit.lower() in ["angstrom", "angs", "a"]:
+            return coordinates * ANGSTROM_TO_BOHR
+        else:
+            raise ValueError(f"Unknown unit: {from_unit}")
     
-    def _determine_convention(self, analysis: Dict[str, Any]) -> None:
+    @staticmethod
+    def to_angstrom(coordinates: np.ndarray, from_unit: str) -> np.ndarray:
         """
-        Determine normalization convention from analysis results.
+        Convert coordinates to Angstroms.
         
         Args:
-            analysis: Dictionary of analysis results
-        """
-        reasons = []
-        normalized_score = 0
-        unnormalized_score = 0
-        
-        # Check large coefficients
-        if analysis['large_coeff_count'] > 0:
-            unnormalized_score += 2
-            reasons.append(f"Found {analysis['large_coeff_count']} unusually large coefficients")
-        
-        # Check coefficients near unity
-        if analysis['near_unity_count'] > len(analysis['coeff_magnitudes']) * 0.3:
-            unnormalized_score += 1
-            reasons.append("Many coefficients are near 1.0 (typical for unnormalized)")
-        
-        # Check normalization ratios
-        if analysis['normalized_likelihood'] > 0.7:
-            normalized_score += 3
-            reasons.append("Coefficient magnitudes match normalized pattern")
-        elif analysis['normalized_likelihood'] > 0.3:
-            normalized_score += 1
-            reasons.append("Coefficient magnitudes partially match normalized pattern")
-        else:
-            unnormalized_score += 1
-            reasons.append("Coefficient magnitudes do not match normalized pattern")
-        
-        # Check coefficient magnitude statistics
-        if analysis['coeff_magnitudes']:
-            coeffs = np.array(analysis['coeff_magnitudes'])
-            median_coeff = np.median(coeffs)
+            coordinates: Input coordinates
+            from_unit: Source unit ("bohr", "au", "angstrom", "angs")
             
-            if median_coeff > 10:
-                unnormalized_score += 1
-                reasons.append(f"Median coefficient magnitude is large ({median_coeff:.2f})")
-            elif median_coeff < 1.0:
-                normalized_score += 1
-                reasons.append(f"Median coefficient magnitude is small ({median_coeff:.2f})")
-        
-        # Determine final convention
-        self.result.reasons = reasons[:5]  # Keep top 5 reasons
-        
-        if normalized_score > unnormalized_score:
-            self.result.convention = NormalizationConvention.NORMALIZED
-            self.result.confidence = normalized_score / (normalized_score + unnormalized_score)
-        elif unnormalized_score > normalized_score:
-            self.result.convention = NormalizationConvention.UNNORMALIZED
-            self.result.confidence = unnormalized_score / (normalized_score + unnormalized_score)
+        Returns:
+            Coordinates in Angstroms
+        """
+        if from_unit.lower() in ["angstrom", "angs", "a"]:
+            return coordinates.copy()
+        elif from_unit.lower() in ["bohr", "au"]:
+            return coordinates * BOHR_TO_ANGSTROM
         else:
-            self.result.convention = NormalizationConvention.UNKNOWN
-            self.result.confidence = 0.5
-        
-        # Adjust confidence based on sample size
-        if len(analysis['coeff_magnitudes']) < 10:
-            self.result.confidence *= 0.5
+            raise ValueError(f"Unknown unit: {from_unit}")
     
-    def _make_recommendation(self) -> None:
-        """Make a recommendation about whether to renormalize."""
-        if self.result.convention == NormalizationConvention.NORMALIZED:
-            self.result.recommendation = "Use coefficients as-is (already normalized)"
-            self.result.should_renormalize = False
-        elif self.result.convention == NormalizationConvention.UNNORMALIZED:
-            self.result.recommendation = "Renormalize primitives during AO computation"
-            self.result.should_renormalize = True
-        else:
-            self.result.recommendation = "Unable to determine with certainty - renormalizing is safer"
-            self.result.should_renormalize = True
+    @staticmethod
+    def detect_unit_from_molden_header(header_line: str) -> str:
+        """
+        Detect coordinate unit from Molden [Atoms] header.
+        
+        Args:
+            header_line: The [Atoms] header line
+            
+        Returns:
+            "AU" or "Angs"
+        """
+        if "angs" in header_line.lower():
+            return "Angs"
+        return "AU"
 
 
-def detect_normalization_convention(gto_data: List[Any], 
-                                   basis_info: Optional[BasisSetInfo] = None) -> NormalizationResult:
+# ==============================================================================
+# Distance and Bond Detection (Always uses Bohr internally)
+# ==============================================================================
+
+def compute_distance_matrix(coordinates: np.ndarray) -> np.ndarray:
     """
-    Quick function to detect normalization convention.
+    Compute pairwise distance matrix using scipy for speed.
     
     Args:
-        gto_data: GTO basis set data
-        basis_info: Optional basis set metadata
+        coordinates: Array of shape (n_atoms, 3) in BOHR
         
     Returns:
-        NormalizationResult object
+        Distance matrix of shape (n_atoms, n_atoms) in BOHR
     """
-    detector = NormalizationDetector(gto_data, basis_info)
-    return detector.detect()
+    return squareform(pdist(coordinates))
 
 
-@numba.njit(cache=True)
-def apply_normalization_factor(alpha: float, coeff: float, l: int, 
-                              should_normalize: bool) -> float:
+def detect_bonds(coordinates: np.ndarray, symbols: List[str],
+                tolerance: float = BOND_TOLERANCE) -> np.ndarray:
     """
-    Apply or skip normalization factor for a primitive.
+    Detect chemical bonds based on atomic distances and covalent radii.
+    
+    IMPORTANT: This function expects coordinates in BOHR and returns
+    distances in BOHR. Covalent radii are converted from Angstroms to Bohr.
     
     Args:
-        alpha: Exponent value
-        coeff: Contraction coefficient
-        l: Angular momentum
-        should_normalize: Whether to apply normalization
+        coordinates: Array of shape (n_atoms, 3) in BOHR
+        symbols: List of element symbols
+        tolerance: Additional tolerance for bond detection (in Angstroms)
         
     Returns:
-        Normalized or unnormalized coefficient
+        Bond matrix where non-zero entries indicate bonds (distances in BOHR)
     """
-    if not should_normalize or alpha < EPSILON:
-        return coeff
+    n_atoms = len(symbols)
+    dist_mat = compute_distance_matrix(coordinates)
+    bond_mat = np.zeros((n_atoms, n_atoms))
     
-    # Calculate normalization factor
-    double_fact = 1.0
-    for i in range(1, 2 * l, 2):
-        double_fact *= i
+    # Convert tolerance to Bohr
+    tolerance_bohr = tolerance * ANGSTROM_TO_BOHR
     
-    if double_fact < EPSILON:
-        return coeff
+    for i in range(n_atoms):
+            for j in range(i + 1, n_atoms):
+                # Clean symbols (e.g., 'H15' -> 'H')
+                sym_i = re.sub(r'[^a-zA-Z]', '', symbols[i]).capitalize()
+                sym_j = re.sub(r'[^a-zA-Z]', '', symbols[j]).capitalize()
+                
+                # # Organic chemistry heuristic: Prevent H-H bonds 
+                # if sym_i == 'H' and sym_j == 'H':
+                #     continue
+                    
+                # Get covalent radii in Angstroms, convert to Bohr
+                r_i_ang = COVALENT_RADII.get(sym_i, DEFAULT_RADIUS)
+                r_j_ang = COVALENT_RADII.get(sym_j, DEFAULT_RADIUS)
+                
+                r_i_bohr = r_i_ang * ANGSTROM_TO_BOHR
+                r_j_bohr = r_j_ang * ANGSTROM_TO_BOHR
+                
+                # Check if distance is within sum of covalent radii + tolerance
+                if dist_mat[i, j] <= (r_i_bohr + r_j_bohr + tolerance_bohr):
+                    bond_mat[i, j] = dist_mat[i, j]
+                    bond_mat[j, i] = dist_mat[i, j]
     
-    norm = (2.0 * alpha / PI) ** 0.75 * (2.0 * np.sqrt(alpha)) ** l / np.sqrt(double_fact)
+    return bond_mat
+
+
+# ==============================================================================
+# Grid Generation (Always uses Bohr internally)
+# ==============================================================================
+
+def generate_grid(coordinates: np.ndarray, resolution: int = 61,
+                 dynamic_buffer: bool = True,
+                 buffer_ratio: float = 0.4,
+                 min_buffer: float = 15.0) -> Tuple[np.ndarray, ...]:
+    """
+    Generate a 3D grid for molecular orbital visualization.
     
-    return coeff * norm
+    IMPORTANT: Expects coordinates in BOHR, returns grid in BOHR.
+    
+    Args:
+        coordinates: Array of shape (n_atoms, 3) in BOHR
+        resolution: Number of grid points along each dimension
+        dynamic_buffer: If True, calculate buffer based on molecule extent
+        buffer_ratio: Ratio of max_extent to use as buffer (e.g., 0.4 = 40%)
+        min_buffer: Minimum buffer to apply (in BOHR)
+        
+    Returns:
+        Tuple of (grid_x, grid_y, grid_z, points) all in BOHR
+    """
+
+    # 1. Find the physical bounds and the true center of the molecule
+    min_coords = np.min(coordinates, axis=0)
+    max_coords = np.max(coordinates, axis=0)
+    center = (max_coords + min_coords) / 2.0
+    
+    # 2. Find the largest extent to make a uniform cube
+    extents = max_coords - min_coords
+    max_extent = np.max(extents)
+    
+    # 3. Calculate the buffer space
+    calculated_buffer = max_extent * buffer_ratio
+    effective_buffer = max(min_buffer, calculated_buffer)
+    grid_range = max_extent / 2 + effective_buffer
+    
+    # --- 4. THE FIX: Shift the linspace grid by the molecule's true center ---
+    x = np.linspace(center[0] - grid_range, center[0] + grid_range, resolution)
+    y = np.linspace(center[1] - grid_range, center[1] + grid_range, resolution)
+    z = np.linspace(center[2] - grid_range, center[2] + grid_range, resolution)
+    # -------------------------------------------------------------------------
+    
+    # Create 3D meshgrid
+    grid_x, grid_y, grid_z = np.meshgrid(x, y, z, indexing='ij')
+    
+    # Stack into points array - using Fortran order for PyVista consistency
+    points = np.vstack((
+        grid_x.ravel(order='F'),
+        grid_y.ravel(order='F'),
+        grid_z.ravel(order='F')
+    )).T
+    
+    return grid_x, grid_y, grid_z, points
