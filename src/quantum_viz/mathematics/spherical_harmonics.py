@@ -32,8 +32,8 @@ from typing import List, Dict, Tuple, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
 
-from constants import EPSILON, PI
-from parsers.molden_parser import BasisSetInfo, MoldenVariant
+from quantum_viz.constants import EPSILON, PI
+from quantum_viz.parsers.molden_parser import BasisSetInfo, MoldenVariant
 
 
 class NormalizationConvention(Enum):

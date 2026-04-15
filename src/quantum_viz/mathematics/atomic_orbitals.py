@@ -34,9 +34,9 @@ from dataclasses import dataclass
 import time
 from tqdm import tqdm
 
-from constants import L_QUANTUM_NUMBERS_MAP, EPSILON, PI
-from mathematics.normalization import apply_normalization_factor, detect_normalization_convention
-from mathematics.spherical_harmonics import real_sph_harmonics_optimized, get_angular_labels
+from quantum_viz.constants import L_QUANTUM_NUMBERS_MAP, EPSILON, PI
+from quantum_viz.mathematics.normalization import apply_normalization_factor, detect_normalization_convention
+from quantum_viz.mathematics.spherical_harmonics import real_sph_harmonics_optimized, get_angular_labels
 
 
 # ==============================================================================

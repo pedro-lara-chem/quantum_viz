@@ -19,18 +19,18 @@ import pyvista as pv
 from typing import List, Optional, Tuple
 from tqdm import tqdm
 
-from parsers.molden_parser import MoldenParser, BasisSetInfo
-from mathematics.atomic_orbitals import AtomicOrbitalComputer
-from constants import BOHR_TO_ANGSTROM, L_QUANTUM_NUMBERS_MAP
-from mathematics.spherical_harmonics import (
+from quantum_viz.parsers.molden_parser import MoldenParser, BasisSetInfo
+from quantum_viz.mathematics.atomic_orbitals import AtomicOrbitalComputer
+from quantum_viz.constants import BOHR_TO_ANGSTROM, L_QUANTUM_NUMBERS_MAP
+from quantum_viz.mathematics.spherical_harmonics import (
     cartesian_to_spherical_coeffs,
     reorder_spherical_coeffs,
     OrderingConvention,
     debug_check_mo_phase
 )
-from utils.geometry import generate_grid, detect_bonds
-from visualization.molecule_plotter import MoleculePlotter, VisualizationStyle
-from visualization.orbital_plotter import OrbitalPlotter, OrbitalStyle
+from quantum_viz.utils.geometry import generate_grid, detect_bonds
+from quantum_viz.visualization.molecule_plotter import MoleculePlotter, VisualizationStyle
+from quantum_viz.visualization.orbital_plotter import OrbitalPlotter, OrbitalStyle
 
 
 class OrbitalVisualizationApp:

@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 # Import constants
-from constants import BOHR_TO_ANGSTROM, ANGSTROM_TO_BOHR, L_QUANTUM_NUMBERS_MAP
+from quantum_viz.constants import BOHR_TO_ANGSTROM, ANGSTROM_TO_BOHR, L_QUANTUM_NUMBERS_MAP
 
 
 class BasisConvention(Enum):
