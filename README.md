@@ -13,30 +13,33 @@ A high-performance Python toolkit for parsing quantum chemistry output files (Mo
 ## Installation
 
 You can install this tool directly from GitHub using pip:
-
+```bash
 pip install git+https://github.com/YourUsername/quantum_viz.git
-
+```
 Alternatively, if you want to clone the repository for development:
 
 1. Clone the repository:
+   ```bash
    git clone https://github.com/YourUsername/quantum_viz.git
    cd quantum_viz
-
+    ```
 2. Create a virtual environment (recommended):
+   ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows use: venv\Scripts\activate
-
+   ```
 3. Install the package and dependencies:
+   ```bash
    pip install -e .
-
+   ```
 ## Usage
 
 ### Command Line Interface
 
 You can run the tool directly from the terminal to process a Molden file and export 3D visualizations. Because of how it's packaged, you can use the `quantum-viz` command anywhere:
-
+```bash
 quantum-viz --input your_molecule.molden --output ./results/ --quality high
-
+```
 #### Available Arguments
 
 | Argument | Short | Type | Default | Description |
@@ -55,7 +58,7 @@ quantum-viz --input your_molecule.molden --output ./results/ --quality high
 ### Python API
 
 You can also use the package as a library in your own Python scripts or Jupyter Notebooks:
-
+```bash
 from quantum_viz.parsers.molden_parser import parse_molden_file
 from quantum_viz.mathematics.atomic_orbitals import AtomicOrbitalComputer
 
@@ -65,7 +68,7 @@ atoms, gtos, mos, basis_info = parse_molden_file('molecule.molden')
 # 2. Compute Atomic Orbitals on a grid
 computer = AtomicOrbitalComputer(atoms, gtos, basis_info)
 ao_matrix, ao_labels = computer.compute(grid_points)
-
+```
 
 ## Supported Shells
 Fully supports **s, p, d, f, g, h,** and **i** orbitals, automatically handling general contraction shells (e.g., 'sp') and Cartesian-to-Spherical harmonic conversions.
