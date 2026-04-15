@@ -14,7 +14,7 @@ A high-performance Python toolkit for parsing quantum chemistry output files (Mo
 
 You can install this tool directly from GitHub using pip:
 ```bash
-pip install git+https://github.com/YourUsername/quantum_viz.git
+pip install git+https://github.com/pedro-lara-chem/quantum_viz.git
 ```
 Alternatively, if you want to clone the repository for development:
 
