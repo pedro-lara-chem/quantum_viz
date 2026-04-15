@@ -208,7 +208,8 @@ class OrbitalPlotter:
         )
         mol_plotter.add_molecule()
     
-    def export(self, filename: str) -> None:
+    def export(self, filename: str, coords_bohr: Optional[np.ndarray] = None, 
+               atomic_numbers: Optional[List[int]] = None, mo_index: Optional[int] = None) -> None:
         """
         Export the visualization to a file.
         
@@ -221,10 +222,53 @@ class OrbitalPlotter:
             self.plotter.export_gltf(filename)
         elif filename.endswith('.html'):
             self.plotter.export_html(filename)
+        elif filename.endswith('.obj'):
+            self.plotter.export_obj(filename)
         elif filename.endswith('.png'):
             self.plotter.screenshot(filename, transparent_background=False, return_img=False)
+        elif filename.endswith('.cube'):
+            if coords_bohr is not None and atomic_numbers is not None and mo_index is not None:
+                self._export_cube(filename, mo_index, coords_bohr, atomic_numbers)
+            else:
+                print("    Warning: Missing atomic data to write .cube file")
         else:
             self.plotter.screenshot(filename, return_img=False)
+
+    def _export_cube(self, filename: str, mo_index: int, coordinates_bohr: np.ndarray, atomic_numbers: List[int]) -> None:
+        """Custom writer for Gaussian .cube volumetric files."""
+        mo_values = self.compute_mo_values(mo_index)
+        nx, ny, nz = self.grid_x.shape
+        
+        origin = (self.grid_x.min(), self.grid_y.min(), self.grid_z.min())
+        
+        # Calculate step sizes in Bohr
+        dx = (self.grid_x.max() - origin[0]) / (nx - 1) if nx > 1 else 0.0
+        dy = (self.grid_y.max() - origin[1]) / (ny - 1) if ny > 1 else 0.0
+        dz = (self.grid_z.max() - origin[2]) / (nz - 1) if nz > 1 else 0.0
+        
+        with open(filename, 'w') as f:
+            f.write(f"Quantum Viz Generated Cube\n")
+            f.write(f"Molecular Orbital {mo_index+1}\n")
+            f.write(f"{len(atomic_numbers):5d} {origin[0]:12.6f} {origin[1]:12.6f} {origin[2]:12.6f}\n")
+            f.write(f"{nx:5d} {dx:12.6f} 0.000000 0.000000\n")
+            f.write(f"{ny:5d} 0.000000 {dy:12.6f} 0.000000\n")
+            f.write(f"{nz:5d} 0.000000 0.000000 {dz:12.6f}\n")
+            
+            for i, coord in enumerate(coordinates_bohr):
+                Z = atomic_numbers[i]
+                f.write(f"{Z:5d} {float(Z):12.6f} {coord[0]:12.6f} {coord[1]:12.6f} {coord[2]:12.6f}\n")
+                
+            # Flatten to 3D matrix (Fortran order to match meshgrid, then read in C-order for Cube specs)
+            mo_3d = mo_values.reshape((nx, ny, nz), order='F')
+            
+            count = 0
+            for val in np.nditer(mo_3d, order='C'):
+                f.write(f"{float(val):13.5E}")
+                count += 1
+                if count % 6 == 0:
+                    f.write("\n")
+            if count % 6 != 0:
+                f.write("\n")
     
     def close(self) -> None:
         """Close the plotter if we own it."""
