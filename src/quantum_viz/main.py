@@ -293,7 +293,16 @@ class OrbitalVisualizationApp:
                     output_dir,
                     f"{base_name}_MO{mo_idx+1}{special}_E{energy:.4f}_Occ{occup:.2f}.{self.output_format}"
                 )
-                orb_plotter.export(output_file)
+                
+                # We need a list of atomic numbers for the cube file!
+                atomic_nums = [a.atomic_number for a in atoms]
+                
+                orb_plotter.export(
+                    output_file, 
+                    coords_bohr=coords_bohr, 
+                    atomic_numbers=atomic_nums, 
+                    mo_index=mo_idx
+                )
                 orb_plotter.close()
             print(f"\n  ✓ Saved {len(mo_indices)} orbital(s) to {output_dir}/")
 
@@ -392,7 +401,7 @@ def main():
     parser.add_argument('--debug-phase', action='store_true',
                         help='Print phase diagnostic information (debug only)')
     parser.add_argument('--format', '-f', default='gltf',
-                        choices=['gltf', 'html', 'ply', 'stl', 'png'],
+                        choices=['gltf', 'glb', 'html', 'obj', 'cube', 'png'],
                         help='Output file format')
     parser.add_argument('--debug-ao', action='store_true',
                         help='Print detailed AO specifications and validate centers')
