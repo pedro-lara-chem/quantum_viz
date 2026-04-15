@@ -24,4 +24,4 @@ __author__ = 'Quantum Chemistry Visualization Team'
 
 from quantum_viz.parsers.molden_parser import MoldenParser, parse_molden_file
 from quantum_viz.mathematics.atomic_orbitals import AtomicOrbitalComputer, compute_atomic_orbitals
-from quantum_viz.visualization.orbital_plotter import OrbitalPlotter, plot_orbital
+from quantum_viz.visualization.orbital_plotter import OrbitalPlotter
