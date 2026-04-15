@@ -178,10 +178,8 @@ class MoleculePlotter:
             self.plotter.export_gltf(filename)
         elif filename.endswith('.html'):
             self.plotter.export_html(filename)
-        elif filename.endswith('.ply'):
-            self.plotter.export_ply(filename)
-        elif filename.endswith('.stl'):
-            self.plotter.export_stl(filename)
+        elif filename.endswith('.obj'):
+            self.plotter.export_obj(filename)
         else:
             self.plotter.screenshot(filename, return_img=False)
     
