@@ -4,7 +4,7 @@ Quantum Chemistry Molecular Orbital Visualization Tool – Revised
 Usage:
     python main.py [--input MOLDEN_FILE] [--output OUTPUT_DIR] [--quality QUALITY]
                   [--basis-format {auto,spherical,cartesian}] [--convention {auto,pyscf,gaussian,orca}]
-                  [--format {gltf,html,ply,stl,png}]
+                  [--format {gltf, glb, html, obj, cube, png}]
                   [--debug-phase] [--debug-ao]
 
 Author: Pedro Lara
