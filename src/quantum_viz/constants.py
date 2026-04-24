@@ -136,7 +136,7 @@ DEFAULT_MASS: float = 10.0      # amu
 # ==============================================================================
 
 # Orbital visualization defaults
-DEFAULT_ISOVALUE: float = 0.05
+DEFAULT_ISOVALUE: float = 0.01
 DEFAULT_RESOLUTION: int = 61
 DEFAULT_OPACITY: float = 0.7
 DEFAULT_SPECULAR: float = 0.5
